@@ -102,7 +102,7 @@ size(jerry_image)
 
 Було отримано інформацію про:
 - розмір зображень;
-- кількість байтів у пам’яті;
+- кількість байтів у пам'яті;
 - тип даних.
 
 ---
@@ -368,6 +368,40 @@ imwrite(jerry_negative, 'images/output/jerry_negative.png');
 ```matlab
 I_negative = imadjust(I, [0 1], [1 0]);
 ```
+
+---
+
+
+
+## Посилання на зображення
+
+### Вхідні зображення
+- [River.jpg](images/input/River.jpg)
+- [Moon.jpg](images/input/Moon.jpg)
+- [Jerry.png](images/input/Jerry.png)
+
+### Збережені результати обробки
+- [river_contrast.png](images/output/river_contrast.png)
+- [river_negative.png](images/output/river_negative.png)
+- [moon_contrast.png](images/output/moon_contrast.png)
+- [moon_negative.png](images/output/moon_negative.png)
+- [jerry_contrast.png](images/output/jerry_contrast.png)
+- [jerry_negative.png](images/output/jerry_negative.png)
+
+## Попередній перегляд зображень у Markdown
+
+### Вхідні зображення
+![River](images/input/River.jpg)
+![Moon](images/input/Moon.jpg)
+![Jerry](images/input/Jerry.png)
+
+### Результати обробки
+![River contrast](images/output/river_contrast.png)
+![River negative](images/output/river_negative.png)
+![Moon contrast](images/output/moon_contrast.png)
+![Moon negative](images/output/moon_negative.png)
+![Jerry contrast](images/output/jerry_contrast.png)
+![Jerry negative](images/output/jerry_negative.png)
 
 ---
 
