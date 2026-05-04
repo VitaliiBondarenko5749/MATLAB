@@ -6,8 +6,6 @@ clear;
 close all;
 clc;
 
-cd MATLAB/Lab4/
-
 %% Шляхи до папок
 input_folder = 'images/';
 output_folder = 'results/';
@@ -20,7 +18,7 @@ end
 f1 = imread([input_folder 'Cameraman.jpg']);
 f2 = imread([input_folder 'Moon.jpg']);
 
-% Якщо випадково RGB — перевести в grayscale
+% Якщо RGB — перевести в grayscale
 if ndims(f1) == 3
     f1 = rgb2gray(f1);
 end
@@ -36,8 +34,8 @@ imwrite(f1, [output_folder 'original_cameraman.png']);
 imwrite(f2, [output_folder 'original_moon.png']);
 
 %% 2. Двовимірне ДПФ і спектри
-F1 = fft2(f1);
-F2 = fft2(f2);
+F1 = fft2(double(f1));
+F2 = fft2(double(f2));
 
 S1 = abs(F1);
 S2 = abs(F2);
@@ -91,97 +89,114 @@ figure, imshow(abs(f2_ifft_shift), []), title('Відновлення moon пі�
 imwrite(mat2gray(abs(f1_ifft_shift)), [output_folder 'restored_shift_ifft_cameraman.png']);
 imwrite(mat2gray(abs(f2_ifft_shift)), [output_folder 'restored_shift_ifft_moon.png']);
 
-%% 5. Gaussian фільтр у просторовій області
+%% 5. Gaussian-фільтр у частотній області
+% Будуємо Gaussian low-pass filter без fspecial/psf2otf
+
 [M1, N1] = size(f1);
 [M2, N2] = size(f2);
 
-sigma1 = 1;
-sigma2 = 5;
+% Координатні сітки для cameraman
+[u1, v1] = meshgrid((-floor(N1/2)):(ceil(N1/2)-1), ...
+                    (-floor(M1/2)):(ceil(M1/2)-1));
 
-h1_small = fspecial('gaussian', [M1 N1], sigma1);
-h1_large = fspecial('gaussian', [M1 N1], sigma2);
+% Координатні сітки для moon
+[u2, v2] = meshgrid((-floor(N2/2)):(ceil(N2/2)-1), ...
+                    (-floor(M2/2)):(ceil(M2/2)-1));
 
-figure, imshow(250*h1_small, []), title('Вікно gaussian фільтра sigma=1');
-figure, imshow(250*h1_large, []), title('Вікно gaussian фільтра sigma=5');
+D1 = sqrt(u1.^2 + v1.^2);
+D2 = sqrt(u2.^2 + v2.^2);
 
-imwrite(mat2gray(250*h1_small), [output_folder 'gaussian_window_sigma1.png']);
-imwrite(mat2gray(250*h1_large), [output_folder 'gaussian_window_sigma5.png']);
+% Параметри Gaussian LPF
+D0_small = 20;
+D0_large = 50;
 
-%% 6. Частотні характеристики gaussian фільтра
-H1_small = fft2(h1_small);
-H1_large = fft2(h1_large);
+H1_small = exp(-(D1.^2) / (2 * D0_small^2));
+H1_large = exp(-(D1.^2) / (2 * D0_large^2));
 
-H1_small_shift = fftshift(abs(H1_small));
-H1_large_shift = fftshift(abs(H1_large));
+H2_small = exp(-(D2.^2) / (2 * D0_small^2));
+H2_large = exp(-(D2.^2) / (2 * D0_large^2));
 
-H1_small_log = log(1 + H1_small_shift);
-H1_large_log = log(1 + H1_large_shift);
+%% 6. Частотна характеристика Gaussian-фільтра
+figure, imshow(H1_small, []), title('Gaussian LPF cameraman, D0=20');
+figure, imshow(H1_large, []), title('Gaussian LPF cameraman, D0=50');
 
-figure, imshow(H1_small_log, []), title('Частотна характеристика sigma=1');
-figure, imshow(H1_large_log, []), title('Частотна характеристика sigma=5');
+figure, imshow(H2_small, []), title('Gaussian LPF moon, D0=20');
+figure, imshow(H2_large, []), title('Gaussian LPF moon, D0=50');
 
-imwrite(mat2gray(H1_small_log), [output_folder 'gaussian_freq_sigma1.png']);
-imwrite(mat2gray(H1_large_log), [output_folder 'gaussian_freq_sigma5.png']);
+imwrite(mat2gray(H1_small), [output_folder 'gaussian_freq_sigma1.png']);
+imwrite(mat2gray(H1_large), [output_folder 'gaussian_freq_sigma5.png']);
 
 %% 7. Фільтрація у частотній області
-% Для cameraman
-IF_small = F1 .* H1_small;
-IF_large = F1 .* H1_large;
+F1 = fft2(double(f1));
+F2 = fft2(double(f2));
 
-filtered_freq_small = ifft2(IF_small);
-filtered_freq_large = ifft2(IF_large);
+F1_shift = fftshift(F1);
+F2_shift = fftshift(F2);
 
-figure, imshow(abs(filtered_freq_small), []), title('Фільтрація у частотній області sigma=1');
-figure, imshow(abs(filtered_freq_large), []), title('Фільтрація у частотній області sigma=5');
+G1_small = F1_shift .* H1_small;
+G1_large = F1_shift .* H1_large;
 
-imwrite(mat2gray(abs(filtered_freq_small)), [output_folder 'filtered_freq_sigma1.png']);
-imwrite(mat2gray(abs(filtered_freq_large)), [output_folder 'filtered_freq_sigma5.png']);
+G2_small = F2_shift .* H2_small;
+G2_large = F2_shift .* H2_large;
+
+filtered_freq1_small = real(ifft2(ifftshift(G1_small)));
+filtered_freq1_large = real(ifft2(ifftshift(G1_large)));
+
+filtered_freq2_small = real(ifft2(ifftshift(G2_small)));
+filtered_freq2_large = real(ifft2(ifftshift(G2_large)));
+
+figure, imshow(mat2gray(filtered_freq1_small)), ...
+    title('Cameraman filtered in frequency domain, D0=20');
+
+figure, imshow(mat2gray(filtered_freq1_large)), ...
+    title('Cameraman filtered in frequency domain, D0=50');
+
+figure, imshow(mat2gray(filtered_freq2_small)), ...
+    title('Moon filtered in frequency domain, D0=20');
+
+figure, imshow(mat2gray(filtered_freq2_large)), ...
+    title('Moon filtered in frequency domain, D0=50');
+
+imwrite(mat2gray(filtered_freq1_small), [output_folder 'filtered_freq_sigma1.png']);
+imwrite(mat2gray(filtered_freq1_large), [output_folder 'filtered_freq_sigma5.png']);
+imwrite(mat2gray(filtered_freq2_small), [output_folder 'moon_filtered_freq_sigma1.png']);
+imwrite(mat2gray(filtered_freq2_large), [output_folder 'moon_filtered_freq_sigma5.png']);
 
 %% 8. Спектри після фільтрації
-SIF_small = abs(IF_small);
-SIF_large = abs(IF_large);
+S1_small = log(1 + abs(G1_small));
+S1_large = log(1 + abs(G1_large));
 
-SIF_small_shift = fftshift(SIF_small);
-SIF_large_shift = fftshift(SIF_large);
+figure, imshow(mat2gray(S1_small)), title('Спектр cameraman після фільтрації D0=20');
+figure, imshow(mat2gray(S1_large)), title('Спектр cameraman після фільтрації D0=50');
 
-SIF_small_log = log(1 + SIF_small_shift);
-SIF_large_log = log(1 + SIF_large_shift);
+imwrite(mat2gray(S1_small), [output_folder 'filtered_spectrum_sigma1.png']);
+imwrite(mat2gray(S1_large), [output_folder 'filtered_spectrum_sigma5.png']);
 
-figure, imshow(SIF_small_log, []), title('Спектр після фільтрації sigma=1');
-figure, imshow(SIF_large_log, []), title('Спектр після фільтрації sigma=5');
+%% 9. Фільтрація у просторовій області для cameraman
+h_small = fspecial('gaussian', [15 15], 1);
+h_large = fspecial('gaussian', [15 15], 5);
 
-imwrite(mat2gray(SIF_small_log), [output_folder 'filtered_spectrum_sigma1.png']);
-imwrite(mat2gray(SIF_large_log), [output_folder 'filtered_spectrum_sigma5.png']);
+filtered_spatial_sigma1 = imfilter(double(f1), h_small, 'replicate');
+filtered_spatial_sigma5 = imfilter(double(f1), h_large, 'replicate');
 
-%% 9. Фільтрація у просторовій області тим самим gaussian фільтром
-% Для порівняння беремо вікна меншого реального розміру
-h_spatial_sigma1 = fspecial('gaussian', [15 15], sigma1);
-h_spatial_sigma5 = fspecial('gaussian', [15 15], sigma2);
+figure, imshow(mat2gray(filtered_spatial_sigma1)), ...
+    title('Просторова фільтрація cameraman sigma=1');
 
-filtered_spatial_sigma1 = imfilter(f1, h_spatial_sigma1, 'replicate');
-filtered_spatial_sigma5 = imfilter(f1, h_spatial_sigma5, 'replicate');
-
-figure, imshow(filtered_spatial_sigma1, []), title('Просторова фільтрація sigma=1');
-figure, imshow(filtered_spatial_sigma5, []), title('Просторова фільтрація sigma=5');
+figure, imshow(mat2gray(filtered_spatial_sigma5)), ...
+    title('Просторова фільтрація cameraman sigma=5');
 
 imwrite(mat2gray(filtered_spatial_sigma1), [output_folder 'filtered_spatial_sigma1.png']);
 imwrite(mat2gray(filtered_spatial_sigma5), [output_folder 'filtered_spatial_sigma5.png']);
 
-%% 10. Порівняння для другого зображення moon
-h2_small = fspecial('gaussian', [M2 N2], sigma1);
-h2_large = fspecial('gaussian', [M2 N2], sigma2);
+%% 10. Просторова фільтрація для moon
+filtered2_spatial_sigma1 = imfilter(double(f2), h_small, 'replicate');
+filtered2_spatial_sigma5 = imfilter(double(f2), h_large, 'replicate');
 
-H2_small = fft2(h2_small);
-H2_large = fft2(h2_large);
+figure, imshow(mat2gray(filtered2_spatial_sigma1)), ...
+    title('Moon: просторова фільтрація sigma=1');
 
-IF2_small = F2 .* H2_small;
-IF2_large = F2 .* H2_large;
+figure, imshow(mat2gray(filtered2_spatial_sigma5)), ...
+    title('Moon: просторова фільтрація sigma=5');
 
-filtered2_freq_small = ifft2(IF2_small);
-filtered2_freq_large = ifft2(IF2_large);
-
-figure, imshow(abs(filtered2_freq_small), []), title('Moon: частотна фільтрація sigma=1');
-figure, imshow(abs(filtered2_freq_large), []), title('Moon: частотна фільтрація sigma=5');
-
-imwrite(mat2gray(abs(filtered2_freq_small)), [output_folder 'moon_filtered_freq_sigma1.png']);
-imwrite(mat2gray(abs(filtered2_freq_large)), [output_folder 'moon_filtered_freq_sigma5.png']);
+imwrite(mat2gray(filtered2_spatial_sigma1), [output_folder 'moon_filtered_spatial_sigma1.png']);
+imwrite(mat2gray(filtered2_spatial_sigma5), [output_folder 'moon_filtered_spatial_sigma5.png']);
